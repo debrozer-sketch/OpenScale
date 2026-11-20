@@ -1120,7 +1120,7 @@ export component MainWindow inherits Window {
           Rectangle {
             x: root.cx;
             width: parent.width;
-            height: parent.height - 176px;
+            height: parent.height;
             clip: true;
             animate x { duration: 150ms; easing: ease-out; }
             if root.items-page-no > 0 && root.catalog-back-btn : Rectangle {
@@ -1400,7 +1400,7 @@ export component MainWindow inherits Window {
             }
         }
     }
-    if root.screen == 2 || (root.screen == 3 && (root.popup-open || root.phase >= 2)) : Rectangle {
+    if (root.screen == 2 || root.screen == 3) && (root.popup-open || root.phase >= 2) : Rectangle {
         x: 0;
         y: root.height - 176px;
         width: root.width;
@@ -1413,31 +1413,6 @@ export component MainWindow inherits Window {
             x: 0; y: 0;
             width: parent.width; height: 1px;
             background: Theme.border;
-        }
-        if root.screen == 2 && !root.popup-open && root.phase < 2 : Rectangle {
-            x: 24px; y: 24px;
-            width: parent.width - 48px; height: parent.height - 48px;
-            Text {
-                x: 0; y: 12px;
-                width: parent.width; height: 36px;
-                text: root.phase >= 2 && root.status-text != "" ? root.status-text : "Выберите товар";
-                font-size: Theme.font-h3;
-                font-weight: 600;
-                color: Theme.ink;
-                vertical-alignment: center;
-            }
-            Text {
-                x: 0; y: 52px;
-                width: parent.width; height: 30px;
-                text: root.phase == 2 ? "Печать этикетки выполняется"
-                    : root.phase == 3 ? "Снимите её с выходного лотка"
-                    : root.phase == 4 ? "Проверьте принтер, затем повторите выбор товара"
-                    : root.phase == 5 ? "Этикетка могла выйти. Не повторяйте печать до проверки"
-                    : "Цена, вес и стоимость появятся здесь";
-                font-size: Theme.font-md;
-                color: Theme.ink-soft;
-                vertical-alignment: center;
-            }
         }
         if !root.popup-open && root.phase >= 2 : Rectangle {
             x: 24px; y: 24px;
