@@ -187,9 +187,8 @@ pub fn choose(specs: &[LabelSpec], len_mm: i32) -> Option<LabelSpec> {
         if diff > 5 {
             continue;
         }
-        let better = best.map_or(true, |(bd, bf, _)| {
-            diff < bd || (diff == bd && spec.fields.len() > bf)
-        });
+        let better =
+            best.is_none_or(|(bd, bf, _)| diff < bd || (diff == bd && spec.fields.len() > bf));
         if better {
             best = Some((diff, spec.fields.len(), spec));
         }

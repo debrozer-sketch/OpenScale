@@ -156,7 +156,7 @@ mod tests {
     }
     #[test]
     fn scales_diag_shows_only_scales() {
-        let mut snap = crate::weight::Snapshot {
+        let snap = crate::weight::Snapshot {
             port_up: true,
             mass_kg: 0.5,
             stable: true,

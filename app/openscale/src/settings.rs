@@ -50,15 +50,6 @@ fn refresh_setting_labels(
         );
         ui.set_dept_cell(trade.dept_cell.get());
         ui.set_goods_idle(format!("{} с", idle_secs.get()).into());
-        ui.set_goods_cardname(
-            if trade.card_show_name.get() {
-                "ВКЛ"
-            } else {
-                "ВЫКЛ"
-            }
-            .into(),
-        );
-        ui.set_card_show_name(trade.card_show_name.get());
         ui.set_goods_backbtn(
             if trade.catalog_back.get() {
                 "ВКЛ"
@@ -167,16 +158,13 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
             }
             let parent = crate::nav::screen_parent_for(k.admin_stage, k.role);
             if parent != 0 {
-                match k.admin_stage {
-                    7..=9 => {
-                        k.pin_pending.clear();
-                        k.pin_new.clear();
-                        if let Some(ui) = ui_handle.upgrade() {
-                            ui.set_pin_forced(false);
-                            ui.set_pin_error("".into());
-                        }
+                if let 7..=9 = k.admin_stage {
+                    k.pin_pending.clear();
+                    k.pin_new.clear();
+                    if let Some(ui) = ui_handle.upgrade() {
+                        ui.set_pin_forced(false);
+                        ui.set_pin_error("".into());
                     }
-                    _ => {}
                 }
                 k.admin_stage = parent;
                 return;
@@ -606,7 +594,7 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                                 }
                             }
                             Ok(Ok(Err(msg))) => {
-                                set_err(&ui_handle2, &msg);
+                                set_err(&ui_handle2, msg);
                                 if msg.contains("старый") {
                                     k.admin_stage = 7;
                                 }
@@ -931,10 +919,10 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
         let trade = trade.clone();
         let relayout = flow.relayout.clone();
         move |id: slint::SharedString| {
-            const ADMIN_TAPS: [&str; 27] = [
+            const ADMIN_TAPS: [&str; 26] = [
                 "createstaff", "net", "restart", "actionlog", "catnet", "catreports", "catservice",
                 "backup", "equip", "goods", "trade", "layout", "cols", "sortalpha", "deptview",
-                "itemscols", "cardname", "backbtn", "idletimeout", "rounding", "minweight",
+                "itemscols", "backbtn", "idletimeout", "rounding", "minweight",
                 "export", "import", "vnctoggle", "resetkey", "itemsort", "imgsync",
             ];
             if ADMIN_TAPS.contains(&id.as_str()) && kiosk.borrow().role != 1 {
@@ -1063,19 +1051,6 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                         );
                     });
                 }
-                "cardname" => {
-                    let next = !trade.card_show_name.get();
-                    let trade = trade.clone();
-                    let ui_handle = ui_handle.clone();
-                    save_setting(&cfg.db_path, "card_show_name", i64::from(next), |v| {
-                        trade.card_show_name.set(v != 0);
-                        refresh_setting_labels(&ui_handle, &trade, &idle_secs);
-                        log::info!(
-                            "меню: название в карточке: {}",
-                            if v != 0 { "вкл" } else { "выкл" }
-                        );
-                    });
-                }
                 "backbtn" => {
                     let next = !trade.catalog_back.get();
                     let trade = trade.clone();
@@ -1091,14 +1066,14 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                 }
                 "itemscols" => {
                     let next = {
-                        let cur = trade.item_cols.get().clamp(4, 12);
-                        if cur >= 12 { 4 } else { cur + 1 }
+                        let cur = trade.item_cols.get().clamp(4, 8);
+                        if cur >= 8 { 4 } else { cur + 1 }
                     };
                     let relayout = relayout.clone();
                     let trade = trade.clone();
                     let ui_handle = ui_handle.clone();
                     save_setting(&cfg.db_path, "item_cols", next as i64, |v| {
-                        trade.item_cols.set(v.clamp(4, 12) as usize);
+                        trade.item_cols.set(v.clamp(4, 8) as usize);
                         relayout();
                         refresh_setting_labels(&ui_handle, &trade, &idle_secs);
                         log::info!("меню: столбцов с товарами: {v}");
@@ -1294,7 +1269,7 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                                 .stderr(std::process::Stdio::null());
                             run_cmd_timeout(&mut cmd, std::time::Duration::from_secs(5))
                         }));
-                        let res = match r {
+                        match r {
                             Ok(Ok(true)) => {
                                 kiosk_vnc_note(next);
                                 log_action(&cfg_t.db_path, "удалённый доступ", format!("VNC {}", if next { "включён" } else { "выключен" }));
@@ -1316,7 +1291,7 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                             }
                         };
                         VNC_BUSY.store(false, std::sync::atomic::Ordering::SeqCst);
-                        res
+
                     });
                 }
                 "resetkey" => {
@@ -2070,11 +2045,11 @@ pub fn install(ctx: &AppContext, flow: &crate::flow::FlowHandles) {
                     if let Some(v) = f.min_weight_g {
                         trade.min_weight_g.set(v.clamp(10, 1000) as f64);
                     }
+                    if let Some(v) = f.item_cols {
+                        trade.item_cols.set(v.clamp(4, 8) as usize);
+                    }
                     if let Some(v) = f.idle_timeout_secs {
                         idle_secs.set(v.clamp(10, 60) as u64);
-                    }
-                    if let Some(v) = f.card_show_name {
-                        trade.card_show_name.set(v);
                     }
                     if let Some(v) = f.catalog_back_btn {
                         trade.catalog_back.set(v);
@@ -2639,7 +2614,7 @@ fn show_preview(
     };
     let (date, time) = crate::print::now_stamp();
     let sum_kop = crate::session::round_sum(crate::session::sum_kopecks(item.price, 1000), 0);
-    let preview = crate::print::preview_items(&spec, &item, 1000, sum_kop, &date, &time);
+    let preview = crate::print::preview_items(spec, &item, 1000, sum_kop, &date, &time);
     let text_rows = preview.iter().filter(|p| !p.barcode).count();
     let sample: String = preview
         .iter()
@@ -2813,6 +2788,7 @@ fn maint_rows(
 
 /// Сообщение проверки принтера для оператора: три исхода — подтверждённая
 /// выдача, достоверный отказ, неопределённый результат. Подробности в логе.
+#[cfg(test)]
 fn test_print_message(r: &Result<(), print::PrintFail>) -> Result<String, String> {
     match r {
         Ok(()) => Ok("Тестовая этикетка получена.".to_string()),
@@ -3157,11 +3133,11 @@ fn build_report(cfg: &crate::config::Config, period: usize, kind: usize) -> Stri
         2 => Some(false),
         _ => None,
     };
-    let rows = match datastore::print_log_filtered(&conn, since, ok, 20) {
+    let rows = match datastore::print_log_filtered(conn, since, ok, 20) {
         Ok(r) => r,
         Err(e) => return format!("Журнал: {e}"),
     };
-    let total = match datastore::print_log_count_filtered(&conn, since, ok) {
+    let total = match datastore::print_log_count_filtered(conn, since, ok) {
         Ok(n) => n,
         Err(e) => return format!("Журнал: {e}"),
     };
@@ -3715,7 +3691,8 @@ fn spawn_settime_then_advance(cfg: &Config, args: &[&str], ui_handle: slint::Wea
     let cfg = cfg.clone();
     std::thread::spawn(move || match run_settime(&args) {
         Ok(()) => {
-            let rendered = (|| -> Option<(i32, i32, String, String, bool, bool, String, bool)> {
+            type WizardRender = (i32, i32, String, String, bool, bool, String, bool);
+            let rendered = (|| -> Option<WizardRender> {
                 let conn = datastore::open(&cfg.db_path).ok()?;
                 let next =
                     crate::setup::advance(crate::setup::stage(&conn), crate::setup::Action::Next);

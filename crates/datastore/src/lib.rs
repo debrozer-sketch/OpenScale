@@ -870,7 +870,7 @@ fn validate_plu_items(items: &[PluItem]) -> Result<(), StoreError> {
             )));
         }
         if let Some(cp) = it.card_price {
-            if cp < 0 || cp > MAX_PRICE_KOP {
+            if !(0..=MAX_PRICE_KOP).contains(&cp) {
                 return Err(StoreError::Xml(format!(
                     "цена по карте позиции {} вне диапазона 0..{MAX_PRICE_KOP} коп",
                     it.plu
@@ -991,12 +991,13 @@ pub fn remove_absent(
 /// раскладка. Либо все изменения фиксируются, либо при любой ошибке база
 /// остаётся в прежнем состоянии. `allow_truncation` — осознанное разрешение
 /// усечения (см. remove_absent_step).
+pub type UploadStats = (usize, usize, Option<(usize, usize)>);
 pub fn apply_upload(
     conn: &Connection,
     items: &[PluItem],
     groups: Option<&[(String, Vec<String>)]>,
     allow_truncation: bool,
-) -> Result<(usize, usize, Option<(usize, usize)>), StoreError> {
+) -> Result<UploadStats, StoreError> {
     validate_plu_items(items)?;
     let tx = conn.unchecked_transaction()?;
     let imported = import_plu_step(&tx, items)?;
@@ -1054,7 +1055,9 @@ pub fn parse_plu_xml_counted(data: &str) -> Result<(Vec<PluItem>, usize), StoreE
                                 _ => bad = true,
                             },
                             b"cardprice" => match v.parse::<i64>() {
-                                Ok(p) if p >= 0 && p <= MAX_PRICE_KOP => it.card_price = Some(p),
+                                Ok(p) if (0..=MAX_PRICE_KOP).contains(&p) => {
+                                    it.card_price = Some(p)
+                                }
                                 _ => bad = true,
                             },
                             b"itemcode" => it.itemcode = v,

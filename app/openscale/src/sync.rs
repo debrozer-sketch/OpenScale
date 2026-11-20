@@ -402,7 +402,7 @@ fn apply_upload(
         &[("plu.xml", plu_data)]
             .into_iter()
             .chain(groups.map(|_| ("layout.xml", ldata)))
-            .chain((allow_truncation).then(|| ("truncate.flg", "requested")))
+            .chain((allow_truncation).then_some(("truncate.flg", "requested")))
             .collect::<Vec<_>>(),
     );
     // Единый безопасный доступ: flock SH + fail-closed (потерянная/повреждённая
@@ -884,8 +884,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("os-sync-trunc-{}", std::process::id()));
         let incoming = dir.join("in");
         std::fs::create_dir_all(&incoming).unwrap();
-        let mut cfg = Config::default();
-        cfg.db_path = dir.join("plu.db");
+        let mut cfg = Config {
+            db_path: dir.join("plu.db"),
+            ..Default::default()
+        };
         cfg.incoming_dir = incoming.clone();
         cfg.center.history_dir = dir.join("hist");
         cfg.center.img_local_dir = dir.join("imgs");

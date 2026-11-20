@@ -375,16 +375,16 @@ pub fn start(
                             let layout_mask = {
                                 let mut cc = checklist_cache.borrow_mut();
                                 cc.1 += 1;
-                                if cc.0 < 0 || cc.1 % 100 == 0 {
+                                if cc.0 < 0 || cc.1.is_multiple_of(100) {
                                     let read = {
                                         let mut db = lock_db.borrow_mut();
                                         if db.is_none() {
                                             *db = datastore::open(&cfg.db_path).ok();
                                         }
-                                        db.as_ref().and_then(|conn| {
+                                        db.as_ref().map(|conn| {
                                             let goods = datastore::plu_count(conn).unwrap_or(0);
                                             let layout = layout_ready(conn);
-                                            Some((goods, layout))
+                                            (goods, layout)
                                         })
                                     };
                                     if let Some((goods, layout)) = read {
@@ -414,7 +414,7 @@ pub fn start(
                                 if db.is_none() {
                                     *db = datastore::open(&cfg.db_path).ok();
                                 }
-                                db.as_ref().map(|c| crate::setup::stage(c)).unwrap_or(0)
+                                db.as_ref().map(crate::setup::stage).unwrap_or(0)
                             };
                             if st == 4 {
                                 let note = format!(
@@ -463,7 +463,7 @@ pub fn start(
                             "{}: взвешиваем…",
                             k.selected
                                 .as_ref()
-                                .map(|p| session::item_display_name(p))
+                                .map(session::item_display_name)
                                 .unwrap_or_else(|| "Товар".into())
                         ),
                         1,

@@ -251,6 +251,12 @@ impl Kiosk {
         h
     }
 }
+
+impl Default for Kiosk {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

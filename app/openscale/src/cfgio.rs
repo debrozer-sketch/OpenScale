@@ -88,7 +88,7 @@ pub fn export(cfg: &Config) -> Result<PathBuf, String> {
     let minw = cal("min_weight_g").unwrap_or(10);
     let cardname = cal("card_show_name").unwrap_or(1);
     let catback = cal("catalog_back_btn").unwrap_or(1);
-    let itemcols = cal("item_cols").unwrap_or(9);
+    let itemcols = cal("item_cols").unwrap_or(7);
     let depts: Vec<DeptEntry> = datastore::depts_list(&conn)
         .map_err(|e| format!("отделы: {e}"))?
         .into_iter()
@@ -123,7 +123,7 @@ pub fn export(cfg: &Config) -> Result<PathBuf, String> {
         min_weight_g: Some(minw.clamp(10, 1000)),
         card_show_name: Some(cardname != 0),
         catalog_back_btn: Some(catback != 0),
-        item_cols: Some(itemcols.clamp(4, 12)),
+        item_cols: Some(itemcols.clamp(4, 8)),
         group_depts,
         label_layouts,
         depts,
@@ -269,7 +269,7 @@ pub fn apply(cfg: &Config, f: &ConfigFile) -> Result<String, String> {
             .map_err(|e| e.to_string())?;
     }
     if let Some(v) = f.item_cols {
-        datastore::set_calibration(&tx, "item_cols", v.clamp(4, 12)).map_err(|e| e.to_string())?;
+        datastore::set_calibration(&tx, "item_cols", v.clamp(4, 8)).map_err(|e| e.to_string())?;
     }
     if !f.group_depts.is_empty() {
         const MAX_GROUPS: usize = 256;
@@ -369,8 +369,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("os-cfgio-b24-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let mut cfg = Config::default();
-        cfg.db_path = dir.join("src.db");
+        let mut cfg = crate::config::Config {
+            db_path: dir.join("src.db"),
+            ..Default::default()
+        };
         cfg.kiosk.cfg_export_dir = dir.clone();
         {
             let conn = datastore::open(&cfg.db_path).unwrap();
@@ -396,8 +398,10 @@ mod tests {
         assert_eq!(file.label_layouts.len(), 1);
         assert_eq!(file.label_layouts[0].name, "test-58x40");
         // Импорт в чистую БД: структура переносится.
-        let mut cfg2 = Config::default();
-        cfg2.db_path = dir.join("dst.db");
+        let mut cfg2 = crate::config::Config {
+            db_path: dir.join("dst.db"),
+            ..Default::default()
+        };
         cfg2.kiosk.cfg_export_dir = dir.clone();
         let summary = apply(&cfg2, &file).unwrap();
         let conn2 = datastore::open(&cfg2.db_path).unwrap();
@@ -515,8 +519,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("openscale-cfgio-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let mut cfg = Config::default();
-        cfg.db_path = dir.join("scale.db");
+        let cfg = crate::config::Config {
+            db_path: dir.join("scale.db"),
+            ..Default::default()
+        };
         let conn = datastore::open(&cfg.db_path).unwrap();
         datastore::set_setting(&conn, "setup_done", "1").unwrap();
         datastore::set_setting(&conn, "setup_stage", "5").unwrap();

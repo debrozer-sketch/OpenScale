@@ -1,5 +1,5 @@
 use crate::context::AppContext;
-use crate::session::weight_state;
+use crate::session::{price_str, round_sum, sum_kopecks, sum_str, weight_state};
 use crate::tiles;
 use crate::{DeptDef, MainWindow, PluTile};
 use std::cell::RefCell;
@@ -31,6 +31,8 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
     let ui = ctx.ui.upgrade().expect("UI init");
     let ui_handle = ctx.ui.clone();
     let kiosk = ctx.kiosk.clone();
+    // Поиск может быть открыт и из главного экрана, и из каталога.
+    let search_origin = Rc::new(std::cell::Cell::new(0_i32));
     let catalog = ctx.catalog.clone();
     let catalog_up = ctx.catalog_up.clone();
     let group_dept = ctx.group_dept.clone();
@@ -99,6 +101,11 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             if ws != 2 || !snap.port_up {
                 return;
             }
+            // Зафиксированный вес, по которому будет печататься этикетка,
+            // должен совпадать с числами, оставшимися в нижней панели после
+            // закрытия выбора товара. Иначе панель показывала бы предыдущий
+            // тик, а этикетка печаталась бы по новому снимку.
+            let weight_g = ((snap.mass_kg.max(0.0)) * 1000.0).round() as u32;
             let item = match datastore::open(&cfg.db_path)
                 .and_then(|conn| datastore::get_item(&conn, &entry.plu))
             {
@@ -115,7 +122,28 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
                     return;
                 }
             };
-            k.print_weight_g = Some(((snap.mass_kg.max(0.0)) * 1000.0).round() as u32);
+            let rounding = trade.rounding.get();
+            if let Some(ui) = ui_handle.upgrade() {
+                // Используем актуальные название и цены из повторно прочитанной
+                // записи, сохраняя уже загруженную фотографию карточки.
+                let mut tile = ui.get_popup_plu();
+                tile.name = crate::session::item_display_name(&item).into();
+                tile.price = price_str(item.price).into();
+                tile.card_price = item.card_price.map(price_str).unwrap_or_default().into();
+                ui.set_popup_plu(tile);
+                ui.set_popup_empty(false);
+                ui.set_popup_weight(format!("{:.3} кг", snap.mass_kg).into());
+                ui.set_popup_sum(
+                    sum_str(round_sum(sum_kopecks(item.price, weight_g), rounding)).into(),
+                );
+                ui.set_popup_card_sum(
+                    item.card_price
+                        .map(|price| sum_str(round_sum(sum_kopecks(price, weight_g), rounding)))
+                        .unwrap_or_default()
+                        .into(),
+                );
+            }
+            k.print_weight_g = Some(weight_g);
             k.pending = None;
             k.selected = Some(item);
             k.phase = 2;
@@ -153,13 +181,15 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             let Some(ui) = ui_handle.upgrade() else {
                 return;
             };
-            let cols = item_cols.get().max(2);
+            let cols = item_cols.get().clamp(4, 8);
             let col_w = ((ui.get_screen_w() - 16.0 - (cols as f32 - 1.0) * 8.0) / cols as f32)
                 .floor()
                 .max(80.0);
             ui.set_items_cols(cols as i32);
             ui.set_items_col_w(col_w);
-            let cap = cols * 3;
+            // Нижние 176 px каталога отведены под постоянную панель товара.
+            // Поэтому одновременно показываются две полноценные строки.
+            let cap = cols * 2;
             let back = catalog_back.get();
             let pages_total = tiles::items_pages(items_all.borrow().len(), cap, back);
             let page = page.min(pages_total - 1);
@@ -204,12 +234,7 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
         let show = show_items_page.clone();
         let sort_pop = ctx.trade.item_sort_pop.clone();
         let db_path = ctx.cfg.db_path.clone();
-        let pop_cache: std::rc::Rc<
-            std::cell::RefCell<(
-                Option<std::time::Instant>,
-                std::collections::HashMap<String, u32>,
-            )>,
-        > = std::rc::Rc::new(std::cell::RefCell::new((
+        let pop_cache = std::rc::Rc::new(std::cell::RefCell::new((
             None,
             std::collections::HashMap::new(),
         )));
@@ -237,11 +262,9 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
                 .map(tiles::tile_light)
                 .collect();
             if sort_pop.get() {
-                let stale = pop_cache
-                    .borrow()
-                    .0
-                    .map(|t| t.elapsed() > std::time::Duration::from_secs(300))
-                    .unwrap_or(true);
+                let stale = pop_cache.borrow().0.is_none_or(|t: std::time::Instant| {
+                    t.elapsed() > std::time::Duration::from_secs(300)
+                });
                 if stale {
                     let since = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
@@ -292,6 +315,8 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
         }
     });
     let header_capacity = |ui: &MainWindow| -> usize {
+        // Пять вкладок отделов вместе с обеими кнопками перелистывания
+        // занимают 702 px и не пересекаются с поиском, начинающимся с x=716.
         (((ui.get_screen_w() - 452.0) / 114.0).floor().max(1.0) as usize).max(1)
     };
     let set_header_slice = {
@@ -382,10 +407,22 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
     ui.on_up({
         let kiosk = kiosk.clone();
         let ui_handle = ui_handle.clone();
+        let search_origin = search_origin.clone();
+        let show_items = show_items_page.clone();
         move || {
             kiosk.borrow_mut().idle_since = None;
             if let Some(ui) = ui_handle.upgrade() {
-                ui.set_screen(0);
+                let origin = search_origin.get();
+                if origin == 2 {
+                    // Поиск показывает собственную модель результатов, но не
+                    // должен уничтожать список открытой категории. При возврате
+                    // восстанавливаем прежнюю страницу каталога.
+                    let page = kiosk.borrow().item_page;
+                    show_items(page);
+                }
+                ui.set_screen(origin);
+                // Возврат закрыл поиск: исходный контекст снова «категории».
+                search_origin.set(0);
             }
         }
     });
@@ -404,9 +441,10 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             let cfg2 = cfg.clone();
             let ui_handle2 = ui_handle.clone();
             let palette2: Vec<(u32, u32)> = palette.iter().cloned().collect();
+            type LayoutData = (Vec<datastore::DeptRow>, Vec<(String, String)>);
             std::thread::spawn(move || {
                 let data = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    (|| -> Option<(Vec<datastore::DeptRow>, Vec<(String, String)>)> {
+                    (|| -> Option<LayoutData> {
                         let conn = datastore::open(&cfg2.db_path).ok()?;
                         let depts = datastore::depts_list(&conn).ok()?;
                         let mut gd_map: std::collections::HashMap<String, String> =
@@ -516,7 +554,7 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
         let ui_handle = ui_handle.clone();
         let catalog = catalog.clone();
         let catalog_up = catalog_up.clone();
-        let items_all = items_all.clone();
+        let _items_all = items_all.clone();
         let query = search_query.clone();
         let img_dir = img_dir.clone();
         move || {
@@ -562,7 +600,6 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             ui.set_items(slint::ModelRc::new(slint::VecModel::from(items)));
             ui.set_items_page_no(0);
             ui.set_items_pages_total(1);
-            *items_all.borrow_mut() = Vec::new();
             let dt = t0.elapsed();
             if dt >= std::time::Duration::from_millis(10) {
                 log::info!("[тайминг] поиск: {} мс", dt.as_millis());
@@ -574,6 +611,7 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
         let ui_handle = ui_handle.clone();
         let query = search_query.clone();
         let apply = search_apply.clone();
+        let search_origin = search_origin.clone();
         move || {
             if kiosk.borrow().db_unavailable {
                 return;
@@ -582,6 +620,8 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             let Some(ui) = ui_handle.upgrade() else {
                 return;
             };
+            let current_screen = ui.get_screen();
+            search_origin.set(if current_screen == 2 { 2 } else { 0 });
             query.borrow_mut().clear();
             ui.set_search_text("".into());
             apply();
@@ -601,10 +641,10 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             {
                 let mut q = query.borrow_mut();
                 match key.as_str() {
-                    "ЗАБОЙ" => {
+                    "Удалить" => {
                         q.pop();
                     }
-                    "ПРОБЕЛ" => {
+                    "Пробел" => {
                         if !q.is_empty() && !q.ends_with(' ') {
                             q.push(' ');
                         }
@@ -656,7 +696,7 @@ pub fn install(ctx: &AppContext) -> FlowHandles {
             };
             match ui.get_screen() {
                 2 => {
-                    let cap = item_cols.get().max(2) * 3;
+                    let cap = item_cols.get().clamp(4, 8) * 2;
                     let back = catalog_back.get();
                     let pages_total = tiles::items_pages(items_all.borrow().len(), cap, back);
                     let page = (kiosk.borrow().item_page + 1).min(pages_total - 1);

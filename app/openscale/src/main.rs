@@ -140,7 +140,7 @@ fn main() {
                     eprintln!("разбор layout.xml: {e}");
                     std::process::exit(1);
                 });
-                match datastore::apply_layout(&conn, &groups) {
+                match datastore::apply_layout(conn, &groups) {
                     Ok((regrouped, orphans)) => println!(
                         "раскладка: {regrouped} товаров по {} группам, без группы: {orphans}",
                         groups.len()
@@ -388,17 +388,13 @@ fn run_kiosk(cfg: openscale::config::Config) {
                     .map(|v| v.clamp(10, 1000) as f64)
                     .unwrap_or(10.0),
             )),
-            card_show_name: std::rc::Rc::new(std::cell::Cell::new(
-                cal("card_show_name").map(|v| v != 0).unwrap_or(true),
-            )),
             catalog_back: std::rc::Rc::new(std::cell::Cell::new(
                 cal("catalog_back_btn").map(|v| v != 0).unwrap_or(true),
             )),
             item_cols: std::rc::Rc::new(std::cell::Cell::new(
                 cal("item_cols")
-                    .map(|v| v.clamp(4, 12) as usize)
-                    .unwrap_or(9)
-                    .max(2),
+                    .map(|v| v.clamp(4, 8) as usize)
+                    .unwrap_or(7),
             )),
         }
     };
@@ -436,7 +432,6 @@ fn run_kiosk(cfg: openscale::config::Config) {
     };
     {
         let ui = ui.as_weak().upgrade().expect("UI init");
-        ui.set_card_show_name(ctx.trade.card_show_name.get());
         ui.set_catalog_back_btn(ctx.trade.catalog_back.get());
     }
     let flow_handles = flow::install(&ctx);

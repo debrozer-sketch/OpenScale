@@ -49,7 +49,7 @@ pub fn clear_img_cache() {
 }
 pub fn items_pages(total: usize, cap: usize, back: bool) -> usize {
     let cap = cap.max(3);
-    if total <= cap - 1 {
+    if total < cap {
         1
     } else if back {
         1 + (total - (cap - 1)).div_ceil(cap - 2)
@@ -65,7 +65,10 @@ pub fn dept_grid(cols: usize, cell: bool, n: usize, win_w: i32, win_h: i32) -> (
     let cols = cols.max(1);
     let per_page = dept_per_page(cols, cell);
     let pages = n.div_ceil(per_page).max(1);
-    let pager_h: i32 = if pages > 1 { 64 } else { 0 };
+    // Нижняя полоса всегда зарезервирована: поиск должен быть доступен
+    // даже когда все категории помещаются на одной странице. Кнопки
+    // пагинации в этой полосе показываются только при pages > 1.
+    let pager_h: i32 = 64;
     let row_w = win_w - 16;
     let colw = ((row_w - (cols as i32 - 1) * 8) / cols as i32).max(1);
     let grid_h = win_h - 160 - 16 - pager_h;
@@ -292,6 +295,19 @@ mod tests {
         assert_eq!(items_pages(18, 18, true), 2);
     }
     #[test]
+    fn product_grid_two_rows_pagination() {
+        // При 7 колонках доступно 14 слотов на странице, один резервируется
+        // под переход. Первая страница показывает 13 товаров, далее — 12.
+        assert_eq!(items_pages(13, 14, true), 1);
+        assert_eq!(items_pages(14, 14, true), 2);
+        assert_eq!(items_pages(25, 14, true), 2);
+        assert_eq!(items_pages(26, 14, true), 3);
+        // При отключённой кнопке возврата слоты распределяются иначе.
+        assert_eq!(items_pages(13, 14, false), 1);
+        assert_eq!(items_pages(14, 14, false), 2);
+    }
+
+    #[test]
     fn pages_no_back_no_duplicates() {
         // cap=27, back=false: page0=26, page1=26 → 52 items в 2 страницах
         assert_eq!(items_pages(0, 27, false), 1);
@@ -302,21 +318,20 @@ mod tests {
     }
     #[test]
     fn dept_grid_columns_single_row() {
-        // 1024×768, 5 колонок, без пагинации: как раньше 195×592
-        assert_eq!(dept_grid(5, false, 5, 1024, 768), (195, 592, 1));
-        // с пагинацией высота ужимается на 64
+        // 1024×768: нижняя полоса поиска/пагинации резервируется всегда.
+        assert_eq!(dept_grid(5, false, 5, 1024, 768), (195, 528, 1));
         assert_eq!(dept_grid(5, false, 6, 1024, 768), (195, 528, 2));
         // ячейки: 3 ряда, до 15 на экран, страницы считаются по 15
         assert_eq!(dept_grid(5, true, 5, 1024, 768).0, 195);
         let (_, h, pages) = dept_grid(5, true, 14, 1024, 768);
         assert_eq!(pages, 1);
-        assert_eq!(h, (592 - 16) / 3);
+        assert_eq!(h, (528 - 16) / 3);
         assert_eq!(dept_pager_y(h, true), 160 + 3 * (h + 8));
-        // 16 отделов: 2 страницы, pager сжимает ряды
+        // 16 отделов: 2 страницы, нижняя полоса остаётся той же высоты
         let (_, h1, pages1) = dept_grid(5, true, 16, 1024, 768);
         assert_eq!(pages1, 2);
-        assert_eq!(h1, (592 - 64 - 16) / 3);
-        assert_eq!(dept_pager_y(592, false), 160 + 592 + 16);
+        assert_eq!(h1, (528 - 16) / 3);
+        assert_eq!(dept_pager_y(528, false), 160 + 528 + 16);
     }
 
     #[test]

@@ -1037,8 +1037,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("openscale-bk-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let mut cfg = Config::default();
-        cfg.db_path = dir.join("kiosk.db");
+        let cfg = crate::config::Config {
+            db_path: dir.join("kiosk.db"),
+            ..Default::default()
+        };
         (dir, cfg)
     }
 
@@ -1789,7 +1791,7 @@ mod tests {
 
     #[test]
     fn today_backup_detection() {
-        let (dir, cfg) = setup("today");
+        let (dir, _cfg) = setup("today");
         let bdir = dir.join("backups");
         std::fs::create_dir_all(&bdir).unwrap();
         assert!(!today_backup_exists(&bdir), "каталог пуст");

@@ -81,14 +81,25 @@ fn build_app_with_catalog(tag: &str, extra_items: usize) -> App {
     let dir = std::env::temp_dir().join(format!("openscale-ui-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let mut cfg = Config::default();
-    cfg.db_path = dir.join("ui.db");
-    cfg.log_file = dir.join("ui.log");
-    cfg.incoming_dir = dir.join("incoming");
-    cfg.ui.img_dir = dir.clone();
-    cfg.printer.port = "NOPE-PORT".into();
-    cfg.kiosk.idle_timeout_secs = 60;
-    cfg.kiosk.return_to_root_after_print = false;
+    let cfg = Config {
+        db_path: dir.join("ui.db"),
+        log_file: dir.join("ui.log"),
+        incoming_dir: dir.join("incoming"),
+        ui: crate::config::UiProfile {
+            img_dir: dir.clone(),
+            ..Default::default()
+        },
+        printer: drivers_api::PrinterProfile {
+            port: "NOPE-PORT".into(),
+            ..Default::default()
+        },
+        kiosk: crate::config::KioskProfile {
+            idle_timeout_secs: 60,
+            return_to_root_after_print: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     seed_db(&cfg);
     if extra_items > 0 {
         let conn = datastore::open(&cfg.db_path).unwrap();
@@ -159,9 +170,8 @@ fn build_app_with_catalog(tag: &str, extra_items: usize) -> App {
         dept_cell: Rc::new(std::cell::Cell::new(false)),
         rounding: Rc::new(std::cell::Cell::new(0)),
         min_weight_g: Rc::new(std::cell::Cell::new(10.0)),
-        card_show_name: Rc::new(std::cell::Cell::new(true)),
         catalog_back: Rc::new(std::cell::Cell::new(true)),
-        item_cols: Rc::new(std::cell::Cell::new(9)),
+        item_cols: Rc::new(std::cell::Cell::new(7)),
         item_sort_pop: Rc::new(std::cell::Cell::new(false)),
     };
     let palette = Rc::new(vec![(0x000000u32, 0xFFFFFFu32)]);
@@ -288,6 +298,30 @@ fn ui_scenarios() {
         ui.invoke_key_tapped("СЫР".into());
         advance(TICK.as_millis() as u64).await;
 
+        // S3a. Поиск сохраняет контекст: возврат в категории или каталог.
+        ui.invoke_up();
+        advance(TICK.as_millis() as u64).await;
+        assert_eq!(ui.get_screen(), 0, "S3a: поиск открыт с главного экрана");
+        ui.invoke_dept_tapped("ФРУКТЫ".into());
+        advance(TICK.as_millis() as u64).await;
+        assert_eq!(ui.get_screen(), 2, "S3a: открыт каталог отдела");
+        let catalog_rows_before_search = ui.get_items().row_count();
+        ui.invoke_search_open();
+        advance(TICK.as_millis() as u64).await;
+        assert_eq!(ui.get_screen(), 3, "S3a: поиск открыт из каталога");
+        ui.invoke_up();
+        advance(TICK.as_millis() as u64).await;
+        assert_eq!(ui.get_screen(), 2, "S3a: возврат из поиска в каталог");
+        assert_eq!(
+            ui.get_items().row_count(),
+            catalog_rows_before_search,
+            "S3a: каталог товаров восстановлен после поиска"
+        );
+        ui.invoke_search_open();
+        advance(TICK.as_millis() as u64).await;
+        ui.invoke_key_tapped("СЫР".into());
+        advance(TICK.as_millis() as u64).await;
+
         // S4. Вес от тестового драйвера отражается в UI.
         app.set_weight(1.350, true, true);
         advance(TICK.as_millis() as u64).await;
@@ -308,6 +342,8 @@ fn ui_scenarios() {
         ui.invoke_plu_confirm();
         advance(TICK.as_millis() as u64).await;
         assert!(!ui.get_popup_open(), "S7: popup закрыт");
+        assert_eq!(ui.get_popup_weight().as_str(), "2.000 кг", "S7: нижняя панель сохраняет точный вес подтверждения");
+        assert_eq!(ui.get_popup_sum().as_str(), "399.98 ₽", "S7: нижняя панель сохраняет сумму подтверждения");
         {
             let k = app.kiosk.borrow();
             assert_eq!(k.phase, 2, "S7: фаза печати");

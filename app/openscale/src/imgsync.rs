@@ -257,8 +257,8 @@ mod tests {
                 .unwrap()
                 .subsec_nanos()
         ));
-        let conn = datastore::open(&path).unwrap();
-        conn
+
+        datastore::open(&path).unwrap()
     }
 
     #[test]

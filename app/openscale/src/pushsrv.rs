@@ -106,7 +106,7 @@ fn random_bytes() -> std::io::Result<[u8; 32]> {
             seed = seed.wrapping_mul(0x1000_0000_01B3) ^ (seed >> 7);
             *b = (seed >> 24) as u8;
         }
-        return Ok(out);
+        Ok(out)
     }
     #[cfg(not(test))]
     Err(std::io::Error::other("/dev/urandom недоступен"))
@@ -549,9 +549,14 @@ mod tests {
     }
 
     fn test_cfg(dir: &std::path::Path) -> Arc<Config> {
-        let mut cfg = Config::default();
-        cfg.db_path = dir.join("push.db");
-        cfg.ui.img_dir = dir.join("img");
+        let cfg = Config {
+            db_path: dir.join("push.db"),
+            ui: crate::config::UiProfile {
+                img_dir: dir.join("img"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         Arc::new(cfg)
     }
 

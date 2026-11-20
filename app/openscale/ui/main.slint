@@ -77,11 +77,10 @@ component DeptTile inherits Rectangle {
     y: 8px + Math.floor(self.idx / self.cols) * (root.tile-h + 8px);
     height: root.tile-h;
     border-radius: Theme.r-card;
-    border-width: root.cell ? 2px : 1px;
-    border-color: root.cell ? Theme.ink-faint : Theme.border;
-    background: root.cell
-        ? (ta.pressed && Math.abs(root.moved-px) < 10px ? Theme.pressed : Theme.surface)
-        : (ta.pressed && Math.abs(root.moved-px) < 10px ? d.bg-pressed : d.bg);
+    border-width: 1px;
+    border-color: Theme.border;
+    background: ta.pressed && Math.abs(root.moved-px) < 10px
+        ? Theme.pressed : Theme.surface;
     animate background { duration: 80ms; }
     if !root.cell && d.has-img : Rectangle {
         x: 8px;
@@ -103,7 +102,7 @@ component DeptTile inherits Rectangle {
         width: parent.width - 16px;
         height: parent.height - 110px - 16px;
         border-radius: Theme.r-panel;
-        background: Theme.scrim;
+        background: Theme.chip;
     }
     Text {
         property <length> ty: root.cell ? 0px : parent.height - 110px;
@@ -114,7 +113,7 @@ component DeptTile inherits Rectangle {
         text: d.name;
         font-size: root.cell ? 28px : root.font;
         font-weight: 700;
-        color: root.cell ? Theme.ink : d.fg;
+        color: Theme.ink;
         horizontal-alignment: center;
         vertical-alignment: center;
         overflow: elide;
@@ -145,11 +144,11 @@ component DeptTile inherits Rectangle {
 component PluCard inherits Rectangle {
     in property <int> idx;
     in property <int> cell-offset: 0;
-    in property <int> cols: 9;
-    in property <length> col-w: 108px;
+    in property <int> cols: 7;
+    in property <length> col-w: 137px;
     in property <PluTile> p;
     in property <bool> active: true;
-    in property <bool> card-show-name: true;
+    in property <bool> selected: false;
     callback tapped;
     callback dragging(length);
     callback drag-end(length);
@@ -161,13 +160,15 @@ component PluCard inherits Rectangle {
     x: 8px + Math.mod(self.idx + self.cell-offset, self.cols) * (root.col-w + 8px);
     y: 56px + Math.floor((self.idx + self.cell-offset) / self.cols) * 182px;
     border-radius: Theme.r-button;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? Theme.accent : Theme.border;
     background: !root.active ? Theme.chip : root.hot ? Theme.pressed : Theme.surface;
     animate background { duration: 80ms; }
     Rectangle {
         x: 4px;
         y: 4px;
         width: parent.width - 8px;
-        height: root.card-show-name ? 76px : 124px;
+        height: 68px;
         border-radius: Theme.r-inner;
         clip: true;
         background: Theme.chip;
@@ -178,13 +179,13 @@ component PluCard inherits Rectangle {
             source: root.p.img;
         }
     }
-    if root.card-show-name : Text {
+    Text {
         x: 4px;
-        y: 82px;
+        y: 76px;
         width: parent.width - 8px;
-        height: 49px;
+        height: 56px;
         text: root.p.name;
-        font-size: 12px;
+        font-size: root.col-w < 128px ? 14px : 15px;
         font-weight: 500;
         wrap: word-wrap;
         overflow: elide;
@@ -198,7 +199,7 @@ component PluCard inherits Rectangle {
         width: parent.width - 8px;
         height: 40px;
         text: root.p.price;
-        font-size: 18px;
+        font-size: root.col-w < 128px ? 16px : 18px;
         font-weight: 600;
         horizontal-alignment: center;
         vertical-alignment: center;
@@ -208,24 +209,25 @@ component PluCard inherits Rectangle {
         x: 4px;
         y: 132px;
         width: parent.width - 8px;
-        height: 14px;
+        height: 16px;
         text: root.p.price;
-        font-size: 12px;
+        font-size: root.col-w < 128px ? 12px : 14px;
         horizontal-alignment: center;
         vertical-alignment: center;
         color: Theme.ink-mute;
     }
     if root.p.card-price != "" : Text {
         x: 4px;
-        y: 146px;
+        y: 149px;
         width: parent.width - 8px;
-        height: 26px;
-        text: root.p.card-price;
-        font-size: 18px;
-        font-weight: 600;
+        height: 22px;
+        text: "По карте: " + root.p.card-price;
+        font-size: 12px;
+        font-weight: 700;
         horizontal-alignment: center;
         vertical-alignment: center;
-        color: Theme.success-text;
+        color: Theme.ink;
+        overflow: elide;
     }
     ta := TouchArea {
         enabled: root.active;
@@ -252,10 +254,11 @@ component KbKey inherits Rectangle {
     in property <string> key;
     in property <length> kw: 72px;
     in property <length> kx;
+    in property <length> key-height: 58px;
     callback key-tapped(string);
     x: root.kx;
     width: root.kw;
-    height: 58px;
+    height: root.key-height;
     border-radius: Theme.r-button;
     border-width: 1px;
     border-color: Theme.border;
@@ -270,8 +273,8 @@ component KbKey inherits Rectangle {
     }
     Timer {
         interval: 250ms;
-        running: k-ta.pressed && (root.key == "←" || root.key == "ЗАБОЙ");
-        triggered => { root.key-tapped("ЗАБОЙ"); }
+        running: k-ta.pressed && (root.key == "Удалить" || root.key == "←");
+        triggered => { root.key-tapped(root.key); }
     }
 }
 global Theme {
@@ -403,7 +406,7 @@ component MenuPage inherits Rectangle {
             Text {
                 x: 24px;
                 y: r.sub == "" ? 0px : (parent.height - 50px) / 2;
-                width: parent.width - (r.value == "" ? 110px : 330px);
+                width: parent.width - (r.value == "" ? 176px : 330px);
                 height: r.sub == "" ? parent.height : 28px;
                 text: r.label + (r.id != "" && r.admin && root.role != 1 ? " · только администратор" : "");
                 font-size: r.id == "" ? 18px : 24px;
@@ -415,7 +418,7 @@ component MenuPage inherits Rectangle {
             if r.sub != "" : Text {
                 x: 24px;
                 y: (parent.height - 50px) / 2 + 28px;
-                width: parent.width - (r.value == "" ? 110px : 330px);
+                width: parent.width - (r.value == "" ? 176px : 330px);
                 height: 22px;
                 text: r.sub;
                 font-size: 16px;
@@ -442,12 +445,13 @@ component MenuPage inherits Rectangle {
                 }
             }
             if r.value == "" && r.id != "status" && r.id != "" : Text {
-                x: parent.width - 44px;
-                width: 28px;
+                x: parent.width - 144px;
+                width: 116px;
                 height: parent.height;
-                text: "›";
-                font-size: 28px;
-                color: Theme.ink-mute;
+                text: "Открыть";
+                font-size: 16px;
+                font-weight: 600;
+                color: Theme.ink-soft;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
@@ -568,8 +572,8 @@ export component MainWindow inherits Window {
     in property <int> items-page-no: 0;
     in property <int> items-cell-offset: 0;
     in property <int> items-pages-total: 1;
-    in property <int> items-cols: 9;
-    in property <length> items-col-w: 108px;
+    in property <int> items-cols: 7;
+    in property <length> items-col-w: 137px;
     in property <int> dept-pages-total: 1;
     in property <PluTile> popup-plu;
     in property <bool> popup-open: false;
@@ -589,7 +593,7 @@ export component MainWindow inherits Window {
     in property <image> logo-img;
     in property <bool> logo-has: false;
     in property <length> col-w: 195px; 
-    in property <length> tile-h: 592px; 
+    in property <length> tile-h: 528px; 
     in property <int> dept-cols: 1;
     in property <length> pager-y: 768px;
     in property <bool> dept-cell: false;
@@ -618,7 +622,9 @@ export component MainWindow inherits Window {
     property <[string]> kb-en2: ["a","s","d","f","g","h","j","k","l"];
     property <[string]> kb-en3: ["z","x","c","v","b","n","m"];
     in-out property <bool> img-latin;
-    property <bool> can-tap: phase != 2 && phase != 3 && phase != 4;
+    // Все фазы после отправки задания печати блокируют новый выбор товара.
+    // Фаза 5 тоже блокирующая: физический результат печати ещё неизвестен.
+    property <bool> can-tap: phase < 2;
     in property <[AdminRow]> admin-rows;
     in property <string> pin-mask;
     in property <string> pin-prompt: "Введите старый пароль";
@@ -669,11 +675,9 @@ export component MainWindow inherits Window {
     in property <string> goods-cols: "2";
     in property <string> goods-sort: "по алфавиту";
     in property <string> goods-idle: "30 с";
-    in property <string> goods-cardname: "ВКЛ";
     in property <string> goods-backbtn: "ВКЛ";
-    in property <string> goods-itemscols: "9 столбцов";
+    in property <string> goods-itemscols: "7 столбцов";
     in property <string> goods-itemsort: "по алфавиту";
-    in property <bool> card-show-name: true;
     in property <bool> catalog-back-btn: true;
     in property <int> header-page: 0;
     in property <string> trade-rounding: "выкл";
@@ -939,7 +943,7 @@ export component MainWindow inherits Window {
             border-color: Theme.border;
             background: pager-back-ta.pressed ? Theme.pressed : Theme.surface;
             Text {
-                text: "← НАЗАД";
+                text: "Предыдущие";
                 font-size: Theme.font-lg;
                 font-weight: 700;
                 color: Theme.ink-soft;
@@ -958,7 +962,7 @@ export component MainWindow inherits Window {
             border-color: Theme.border;
             background: pager-more-ta.pressed ? Theme.pressed : Theme.surface;
             Text {
-                text: "ДАЛЕЕ →";
+                text: "Следующие";
                 font-size: Theme.font-lg;
                 font-weight: 700;
                 color: Theme.ink-soft;
@@ -985,7 +989,7 @@ export component MainWindow inherits Window {
                 Text {
                     width: parent.width;
                     height: parent.height;
-                    text: "Меню";
+                    text: "Категории";
                     font-size: 16px;
                     font-weight: 700;
                     color: Theme.ink;
@@ -994,6 +998,17 @@ export component MainWindow inherits Window {
                 }
                 cat-back-ta := TouchArea {
                     clicked => { root.catalog-back(); }
+                }
+                Text {
+                    x: 132px; y: 8px;
+                    width: root.width - 456px;
+                    height: 40px;
+                    text: root.screen-title;
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: Theme.ink;
+                    vertical-alignment: center;
+                    overflow: elide;
                 }
             }
             if !root.catalog-back-btn : Rectangle {
@@ -1029,18 +1044,18 @@ export component MainWindow inherits Window {
                 if root.header-page > 0 : Rectangle {
                     x: 8px + root.header-depts.length * 114px;
                     y: 8px;
-                    width: 40px;
+                    width: 64px;
                     height: 40px;
-                    border-radius: 20px;
+                    border-radius: 12px;
                     border-width: 1px;
                     border-color: Theme.border;
                     background: dept-prev-ta.pressed ? Theme.pressed : Theme.surface;
                     Text {
                         width: parent.width;
                         height: parent.height;
-                        text: "‹";
-                        font-size: 22px;
-                        font-weight: 700;
+                        text: "Назад";
+                        font-size: 13px;
+                        font-weight: 600;
                         color: Theme.ink-soft;
                         horizontal-alignment: center;
                         vertical-alignment: center;
@@ -1051,20 +1066,20 @@ export component MainWindow inherits Window {
                 }
                 if root.header-page < root.dept-pages-total - 1 : Rectangle {
                     x: 8px + root.header-depts.length * 114px
-                        + (root.header-page > 0 ? 44px : 0px);
+                        + (root.header-page > 0 ? 68px : 0px);
                     y: 8px;
-                    width: 40px;
+                    width: 64px;
                     height: 40px;
-                    border-radius: 20px;
+                    border-radius: 12px;
                     border-width: 1px;
                     border-color: Theme.border;
                     background: dept-next-ta.pressed ? Theme.pressed : Theme.surface;
                     Text {
                         width: parent.width;
                         height: parent.height;
-                        text: "›";
-                        font-size: 22px;
-                        font-weight: 700;
+                        text: "Далее";
+                        font-size: 13px;
+                        font-weight: 600;
                         color: Theme.ink-soft;
                         horizontal-alignment: center;
                         vertical-alignment: center;
@@ -1074,7 +1089,7 @@ export component MainWindow inherits Window {
                     }
                 }
             }
-            // Поиск: пилюля с лупой
+            // Поиск — текстовая кнопка без неоднозначной пиктограммы.
             Rectangle {
                 x: root.width - 308px; y: 8px;
                 width: 300px; height: 40px;
@@ -1082,29 +1097,16 @@ export component MainWindow inherits Window {
                 border-width: 1px;
                 border-color: Theme.border;
                 background: search2-ta.pressed ? Theme.pressed : Theme.surface;
-                Rectangle { // лупа: обод
-                    x: 16px; y: 12px;
-                    width: 11px; height: 11px;
-                    border-radius: 6px;
-                    border-width: 2px;
-                    border-color: Theme.ink-faint;
-                }
-                Text { // лупа: ручка
-                    x: 25px; y: 21px;
-                    width: 8px; height: 8px;
-                    text: "⌐";
-                    font-size: 8px;
-                    color: Theme.ink-mute;
-                    vertical-alignment: center;
-                }
                 Text {
-                    x: 44px;
-                    width: parent.width - 56px;
+                    x: 16px;
+                    width: parent.width - 32px;
                     height: parent.height;
-                    text: "Поиск товара";
-                    font-size: Theme.font-xs;
-                    color: Theme.ink-mute;
+                    text: "Найти товар";
+                    font-size: Theme.font-md;
+                    font-weight: 600;
+                    color: Theme.ink-soft;
                     vertical-alignment: center;
+                    horizontal-alignment: center;
                 }
                 search2-ta := TouchArea {
                     clicked => { root.search-open(); }
@@ -1118,7 +1120,8 @@ export component MainWindow inherits Window {
           Rectangle {
             x: root.cx;
             width: parent.width;
-            height: parent.height;
+            height: parent.height - 176px;
+            clip: true;
             animate x { duration: 150ms; easing: ease-out; }
             if root.items-page-no > 0 && root.catalog-back-btn : Rectangle {
                 x: 8px;
@@ -1128,12 +1131,14 @@ export component MainWindow inherits Window {
                 border-radius: Theme.r-button;
                 background: prev2-ta.pressed ? Theme.pressed : Theme.chip;
                 Text {
-                    text: "‹";
-                    font-size: 30px;
-                    font-weight: 700;
+                    text: "Предыдущие товары";
+                    font-size: 14px;
+                    font-weight: 600;
+                    wrap: word-wrap;
                     horizontal-alignment: center;
                     vertical-alignment: center;
-                    width: parent.width;
+                    width: parent.width - 12px;
+                    x: 6px;
                     height: parent.height;
                     color: Theme.ink-soft;
                 }
@@ -1148,7 +1153,7 @@ export component MainWindow inherits Window {
                 col-w: root.items-col-w;
                 p: p;
                 active: root.can-tap && !root.gbusy;
-                card-show-name: root.card-show-name;
+                selected: root.popup-plu.id == p.id && (root.popup-open || root.phase >= 2);
                 tapped => { root.plu-tapped(p.id); }
                 dragging(dx) => { root.drag-move(dx); }
                 drag-end(dx) => { root.drag-release(dx); }
@@ -1161,12 +1166,13 @@ export component MainWindow inherits Window {
                 border-radius: Theme.r-button;
                 background: next2-ta.pressed ? Theme.pressed : Theme.chip;
                 Text {
-                    text: "›";
-                    font-size: 30px;
-                    font-weight: 700;
+                    text: "Ещё товары";
+                    font-size: 16px;
+                    font-weight: 600;
                     horizontal-alignment: center;
                     vertical-alignment: center;
-                    width: parent.width;
+                    width: parent.width - 12px;
+                    x: 6px;
                     height: parent.height;
                     color: Theme.ink-soft;
                 }
@@ -1190,7 +1196,7 @@ export component MainWindow inherits Window {
             x: 16px;
             width: parent.width - 32px;
             height: parent.height;
-            text: "Поиск товара";
+            text: "Найти товар";
             font-size: Theme.font-lg;
             color: Theme.ink-mute;
             vertical-alignment: center;
@@ -1209,7 +1215,7 @@ export component MainWindow inherits Window {
             border-radius: Theme.r-card;
             background: search-back-ta.pressed ? Theme.pressed : Theme.surface;
             Text {
-                text: "← Назад";
+                text: "Назад";
                 font-size: Theme.font-lg;
                 font-weight: 700;
                 color: Theme.ink;
@@ -1243,7 +1249,7 @@ export component MainWindow inherits Window {
             border-color: Theme.border;
             background: search-clear-ta.pressed ? Theme.pressed : Theme.surface;
             Text {
-                text: "ОЧИСТИТЬ";
+                text: "Очистить";
                 font-size: Theme.font-sm;
                 font-weight: 700;
                 color: Theme.ink-soft;
@@ -1258,7 +1264,10 @@ export component MainWindow inherits Window {
             width: 1008px;
             height: 56px;
             border-radius: Theme.r-button;
+            border-width: root.popup-plu.id == p.id && (root.popup-open || root.phase >= 2) ? 2px : 1px;
+            border-color: root.popup-plu.id == p.id && (root.popup-open || root.phase >= 2) ? Theme.accent : Theme.border;
             background: res-ta.pressed ? Theme.pressed : Theme.surface;
+            opacity: root.can-tap ? 1.0 : 0.55;
             if p.hl-match == "" : Text {
                 x: 16px;
                 width: 560px;
@@ -1314,7 +1323,7 @@ export component MainWindow inherits Window {
                 x: 790px;
                 width: 190px;
                 height: parent.height;
-                text: p.card-price;
+                text: "По карте: " + p.card-price;
                 font-size: Theme.font-md;
                 font-weight: 700;
                 horizontal-alignment: right;
@@ -1322,6 +1331,7 @@ export component MainWindow inherits Window {
                 color: Theme.success-bright;
             }
             res-ta := TouchArea {
+                enabled: root.can-tap && !root.gbusy;
                 clicked => { root.plu-tapped(p.id); }
             }
         }
@@ -1341,92 +1351,229 @@ export component MainWindow inherits Window {
             horizontal-alignment: center;
             color: Theme.ink-mute;
         }
-        for k[i] in root.kb1 : KbKey {
-            kx: 8px + i * 78px;
-            y: 404px;
-            key: k;
-            key-tapped(k) => { root.key-tapped(k); }
-        }
-        for k[i] in root.kb2 : KbKey {
-            kx: 82px + i * 78px;
-            y: 470px;
-            key: k;
-            key-tapped(k) => { root.key-tapped(k); }
-        }
-        for k[i] in root.kb3 : KbKey {
-            kx: 8px + i * 78px;
-            y: 536px;
-            key: k;
-            key-tapped(k) => { root.key-tapped(k); }
-        }
-        KbKey {
-            kx: 712px;
-            y: 536px;
-            kw: 170px;
-            key: "ПРОБЕЛ";
-            key-tapped(k) => { root.key-tapped(k); }
-        }
-        KbKey {
-            kx: 890px;
-            y: 536px;
-            kw: 118px;
-            key: "ЗАБОЙ";
-            key-tapped(k) => { root.key-tapped(k); }
-        }
-        for k[i] in root.kb4 : KbKey {
-            kx: 8px + i * 78px;
-            y: 602px;
-            key: k;
-            key-tapped(k) => { root.key-tapped(k); }
+        if !root.popup-open && root.phase < 2 : Rectangle {
+            x: 0; y: 0;
+            width: root.width; height: root.height;
+            for k[i] in root.kb1 : KbKey {
+                kx: 8px + i * 78px;
+                y: 400px;
+                key-height: 48px;
+                key: k;
+                key-tapped(k) => { root.key-tapped(k); }
+            }
+            for k[i] in root.kb2 : KbKey {
+                kx: 82px + i * 78px;
+                y: 452px;
+                key-height: 48px;
+                key: k;
+                key-tapped(k) => { root.key-tapped(k); }
+            }
+            for k[i] in root.kb3 : KbKey {
+                kx: 8px + i * 78px;
+                y: 504px;
+                key-height: 48px;
+                key: k;
+                key-tapped(k) => { root.key-tapped(k); }
+            }
+            KbKey {
+                kx: 712px;
+                y: 504px;
+                kw: 170px;
+                key-height: 48px;
+                key: "Пробел";
+                key-tapped(k) => { root.key-tapped(k); }
+            }
+            KbKey {
+                kx: 890px;
+                y: 504px;
+                kw: 118px;
+                key-height: 48px;
+                key: "Удалить";
+                key-tapped(k) => { root.key-tapped(k); }
+            }
+            for k[i] in root.kb4 : KbKey {
+                kx: 8px + i * 78px;
+                y: 556px;
+                key-height: 48px;
+                key: k;
+                key-tapped(k) => { root.key-tapped(k); }
+            }
         }
     }
-    if root.popup-open : Rectangle {
-        x: 0; y: 0;
+    if root.screen == 2 || (root.screen == 3 && (root.popup-open || root.phase >= 2)) : Rectangle {
+        x: 0;
+        y: root.height - 176px;
         width: root.width;
-        height: root.height;
-        background: transparent;
-        popup-back-ta := TouchArea {
-            clicked => { root.plu-cancel(); }
-        }
-        property <bool> bs-in: false;
-        Timer {
-            interval: 1ms;
-            running: !bs-in;
-            triggered => { bs-in = true; }
-        }
+        height: 176px;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: Theme.r-panel;
+        background: Theme.surface;
         Rectangle {
-            x: 0;
-            y: !parent.bs-in ? root.height : root.height - 420px;
-            width: root.width;
-            height: 420px;
-            border-radius: Theme.r-panel;
-            background: Theme.surface;
-            animate y { duration: 200ms; easing: ease-out; }
-            popup-panel-ta := TouchArea { }
-            Rectangle { // ручка
-                x: (parent.width - 40px) / 2;
-                y: 8px;
-                width: 40px; height: 4px;
-                border-radius: 2px;
-                background: Theme.pressed;
+            x: 0; y: 0;
+            width: parent.width; height: 1px;
+            background: Theme.border;
+        }
+        if root.screen == 2 && !root.popup-open && root.phase < 2 : Rectangle {
+            x: 24px; y: 24px;
+            width: parent.width - 48px; height: parent.height - 48px;
+            Text {
+                x: 0; y: 12px;
+                width: parent.width; height: 36px;
+                text: root.phase >= 2 && root.status-text != "" ? root.status-text : "Выберите товар";
+                font-size: Theme.font-h3;
+                font-weight: 600;
+                color: Theme.ink;
+                vertical-alignment: center;
             }
-            Rectangle { // фото в пастельном квадрате
-                x: 24px; y: 32px;
-                width: 120px; height: 120px;
-                border-radius: 14px;
+            Text {
+                x: 0; y: 52px;
+                width: parent.width; height: 30px;
+                text: root.phase == 2 ? "Печать этикетки выполняется"
+                    : root.phase == 3 ? "Снимите её с выходного лотка"
+                    : root.phase == 4 ? "Проверьте принтер, затем повторите выбор товара"
+                    : root.phase == 5 ? "Этикетка могла выйти. Не повторяйте печать до проверки"
+                    : "Цена, вес и стоимость появятся здесь";
+                font-size: Theme.font-md;
+                color: Theme.ink-soft;
+                vertical-alignment: center;
+            }
+        }
+        if !root.popup-open && root.phase >= 2 : Rectangle {
+            x: 24px; y: 24px;
+            width: parent.width - 48px; height: parent.height - 48px;
+            if root.popup-plu.has-img : Rectangle {
+                x: 0px; y: 22px;
+                width: 88px; height: 88px;
+                border-radius: Theme.r-inner;
                 clip: true;
                 background: Theme.chip;
-                if root.popup-plu.has-img : Image {
+                Image {
                     width: 100%; height: 100%;
                     image-fit: contain;
                     source: root.popup-plu.img;
                 }
             }
-            if root.card-show-name : Text {
-                x: 160px; y: 32px;
-                width: parent.width - 660px; height: 44px;
+            Text {
+                x: root.popup-plu.has-img ? 104px : 0px; y: 4px;
+                width: root.popup-plu.has-img ? 330px : 420px;
+                height: 48px;
                 text: root.popup-plu.name;
+                font-size: 19px;
+                font-weight: 700;
+                color: Theme.ink;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                overflow: elide;
+            }
+            Text {
+                x: root.popup-plu.has-img ? 104px : 0px; y: 54px;
+                width: root.popup-plu.has-img ? 330px : 420px;
+                height: 26px;
+                text: root.popup-plu.price;
                 font-size: 16px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+                vertical-alignment: center;
+            }
+            if root.popup-plu.card-price != "" : Text {
+                x: root.popup-plu.has-img ? 104px : 0px; y: 84px;
+                width: root.popup-plu.has-img ? 330px : 420px;
+                height: 24px;
+                text: "Цена по карте: " + root.popup-plu.card-price;
+                font-size: 14px;
+                color: Theme.ink-soft;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Text {
+                x: 452px; y: 4px;
+                width: 180px; height: 24px;
+                text: "Вес";
+                font-size: 15px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+            }
+            Text {
+                x: 452px; y: 28px;
+                width: 205px; height: 46px;
+                text: root.popup-weight;
+                font-size: 27px;
+                font-weight: 700;
+                color: Theme.ink;
+                vertical-alignment: center;
+            }
+            Text {
+                x: 452px; y: 82px;
+                width: 205px; height: 24px;
+                text: "Вес зафиксирован";
+                font-size: 13px;
+                color: Theme.ink-soft;
+                vertical-alignment: center;
+            }
+            Text {
+                x: 680px; y: 4px;
+                width: 304px; height: 24px;
+                text: "Стоимость";
+                font-size: 15px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+            }
+            Text {
+                x: 680px; y: 25px;
+                width: 304px; height: 46px;
+                text: root.popup-sum;
+                font-size: 31px;
+                font-weight: 700;
+                color: Theme.ink;
+                vertical-alignment: center;
+            }
+            if root.popup-plu.card-price != "" : Text {
+                x: 680px; y: 72px;
+                width: 304px; height: 22px;
+                text: "По карте: " + root.popup-card-sum;
+                font-size: 14px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Text {
+                x: 680px; y: 106px;
+                width: 328px; height: 40px;
+                text: root.phase == 2 ? "Печатаем этикетку"
+                    : root.phase == 3 ? "Заберите этикетку"
+                    : root.phase == 4 ? root.status-text
+                    : "Этикетка могла выйти. Проверьте лоток. Не повторяйте печать";
+                font-size: 14px;
+                font-weight: 600;
+                color: root.phase == 4 ? Theme.danger-ink
+                    : root.phase == 5 ? Theme.warning-deep : Theme.ink-soft;
+                vertical-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+        if root.popup-open : Rectangle {
+            x: 0; y: 0;
+            width: parent.width; height: parent.height;
+            popup-panel-ta := TouchArea { }
+            if root.popup-plu.has-img : Rectangle {
+                x: 16px; y: 42px;
+                width: 88px; height: 88px;
+                border-radius: Theme.r-inner;
+                clip: true;
+                background: Theme.chip;
+                Image {
+                    width: 100%; height: 100%;
+                    image-fit: contain;
+                    source: root.popup-plu.img;
+                }
+            }
+            Text {
+                x: root.popup-plu.has-img ? 120px : 24px; y: 18px;
+                width: root.popup-plu.has-img ? 340px : 436px; height: 48px;
+                text: root.popup-plu.name;
+                font-size: 20px;
                 font-weight: 700;
                 wrap: word-wrap;
                 overflow: elide;
@@ -1434,128 +1581,105 @@ export component MainWindow inherits Window {
                 color: Theme.ink;
             }
             Text {
-                x: 160px; y: 80px;
-                width: 300px; height: 20px;
-                text: "PLU " + root.popup-plu.id;
-                font-size: 14px;
-                color: Theme.ink-mute;
-                vertical-alignment: center;
-            }
-            // Правая колонка: «К оплате», вес, цена
-            Text {
-                x: 544px; y: 32px;
-                width: 456px; height: 22px;
-                text: "К оплате";
-                font-size: 16px;
-                color: Theme.ink-mute;
-                horizontal-alignment: right;
-                vertical-alignment: center;
-            }
-            if !root.popup-empty : Text {
-                x: 544px; y: 54px;
-                width: 456px; height: 52px;
-                text: root.popup-sum;
-                font-size: 40px;
-                font-weight: 700;
-                horizontal-alignment: right;
-                vertical-alignment: center;
-                color: Theme.ink;
-            }
-            if !root.popup-empty && root.popup-plu.card-price != "" : Text {
-                x: 544px; y: 108px;
-                width: 456px; height: 20px;
-                text: "Со скидочной картой: " + root.popup-card-sum;
-                font-size: 13px;
-                font-weight: 700;
-                horizontal-alignment: right;
-                vertical-alignment: center;
-                color: Theme.success-bright;
-            }
-            Text { // ВЕС — виден всегда, оператор читает показания весов
-                x: 544px; y: 266px;
-                width: 220px; height: 20px;
-                text: "ВЕС";
-                font-size: 14px;
-                font-weight: 700;
-                color: Theme.ink-mute;
-                vertical-alignment: center;
-            }
-            Text {
-                x: 544px; y: 286px;
-                width: 220px; height: 34px;
-                text: root.popup-weight;
-                font-size: 26px;
-                font-weight: 700;
-                vertical-alignment: center;
-                color: root.popup-empty
-                    ? (root.popup-scales-off ? Theme.ink-faint : Theme.warning-deep)
-                    : Theme.ink;
-            }
-            Text { // ЦЕНА — известна из карточки, видна без веса
-                x: 784px; y: 266px;
-                width: 216px; height: 20px;
-                text: "ЦЕНА";
-                font-size: 14px;
-                font-weight: 700;
-                color: Theme.ink-mute;
-                vertical-alignment: center;
-            }
-            Text {
-                x: 784px; y: 286px;
-                width: 216px; height: 34px;
+                x: root.popup-plu.has-img ? 120px : 24px; y: 72px;
+                width: root.popup-plu.has-img ? 340px : 436px; height: 26px;
                 text: root.popup-plu.price;
-                font-size: 26px;
+                font-size: 18px;
+                font-weight: 600;
+                vertical-alignment: center;
+                color: Theme.ink-soft;
+            }
+            if root.popup-plu.card-price != "" : Text {
+                x: root.popup-plu.has-img ? 120px : 24px; y: 101px;
+                width: root.popup-plu.has-img ? 340px : 436px; height: 22px;
+                text: "Цена по карте: " + root.popup-plu.card-price;
+                font-size: 15px;
+                vertical-alignment: center;
+                color: Theme.success-text;
+            }
+            Text {
+                x: 480px; y: 16px;
+                width: 180px; height: 22px;
+                text: "Вес";
+                font-size: 16px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+            }
+            Text {
+                x: 480px; y: 41px;
+                width: 180px; height: 40px;
+                text: root.popup-weight;
+                font-size: 28px;
                 font-weight: 700;
                 vertical-alignment: center;
-                color: Theme.ink;
+                color: root.popup-empty ? Theme.ink-soft : Theme.ink;
             }
-            if root.popup-notice != "" : Text {
-                x: 24px; y: 140px;
-                width: parent.width - 540px; height: 48px;
-                text: root.popup-notice;
-                font-size: Theme.font-lg;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-                color: Theme.danger;
-            }
-            if root.popup-empty && root.popup-notice == "" : Text {
-                x: 24px; y: 140px;
-                width: parent.width - 540px; height: 48px;
-                text: root.popup-scales-off ? "Весы недоступны"
+            Text {
+                x: 480px; y: 84px;
+                width: 180px; height: 24px;
+                text: root.popup-notice != "" ? root.popup-notice
+                    : root.popup-scales-off ? "Весы недоступны"
                     : root.popup-unstable ? "Вес нестабилен"
                     : root.popup-under-min ? "Вес слишком мал"
-                    : "Положите товар на весы";
-                font-size: Theme.font-lg;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+                    : root.popup-empty ? "Положите товар на весы"
+                    : "Вес стабилен";
+                font-size: 14px;
+                font-weight: 600;
                 color: root.popup-scales-off || root.popup-under-min ? Theme.danger
-                     : root.popup-unstable ? Theme.warning-deep : Theme.ink-faint;
+                    : root.popup-unstable ? Theme.warning-deep : Theme.ink-soft;
+                vertical-alignment: center;
+                overflow: elide;
             }
-            Rectangle { // отмена
-                x: 24px; y: 340px;
-                width: 180px; height: 56px;
+            Text {
+                x: 680px; y: 16px;
+                width: 328px; height: 22px;
+                text: "Стоимость";
+                font-size: 16px;
+                font-weight: 600;
+                color: Theme.ink-soft;
+            }
+            Text {
+                x: 680px; y: 38px;
+                width: 328px; height: 44px;
+                text: root.popup-empty ? "—" : root.popup-sum;
+                font-size: 32px;
+                font-weight: 700;
+                vertical-alignment: center;
+                color: Theme.ink;
+            }
+            if root.popup-plu.card-price != "" && !root.popup-empty : Text {
+                x: 680px; y: 82px;
+                width: 328px; height: 22px;
+                text: "По карте: " + root.popup-card-sum;
+                font-size: 15px;
+                font-weight: 600;
+                color: Theme.success-text;
+                vertical-alignment: center;
+            }
+            Rectangle {
+                x: 680px; y: 112px;
+                width: 124px; height: 52px;
                 border-radius: Theme.r-button;
-                background: popup-cancel-ta.pressed ? Theme.pressed : Theme.chip;
+                background: cancel-dock-ta.pressed ? Theme.pressed : Theme.chip;
                 Text {
                     text: "Отмена";
-                    font-size: 18px;
-                    font-weight: 700;
+                    font-size: 17px;
+                    font-weight: 600;
                     color: Theme.ink;
-                    width: parent.width;
-                    height: parent.height;
+                    width: parent.width; height: parent.height;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
-                popup-cancel-ta := TouchArea {
+                cancel-dock-ta := TouchArea {
                     clicked => { root.plu-cancel(); }
                 }
             }
-            AppButton { // напечатать этикетку
-                x: 216px; y: 340px;
-                width: parent.width - 240px; height: 56px;
+            AppButton {
+                x: 812px; y: 112px;
+                width: 196px; height: 52px;
                 kind: 1;
                 label: "Напечатать этикетку";
-                font-size: 18px;
+                font-size: 16px;
                 text-color: Theme.surface;
                 enabled: !root.popup-empty && root.weight-state == 2;
                 clicked => { root.plu-confirm(); }
@@ -1794,13 +1918,14 @@ export component MainWindow inherits Window {
                     overflow: elide;
                 }
                 if row.state == 2 : Text {
-                    x: parent.width - 34px;
-                    width: 26px;
+                    x: parent.width - 88px;
+                    width: 78px;
                     height: parent.height;
-                    text: "✓";
-                    font-size: Theme.font-body;
+                    text: "Готово";
+                    font-size: Theme.font-sm;
                     font-weight: 700;
-                    color: Theme.success;
+                    color: Theme.success-ink;
+                    horizontal-alignment: center;
                     vertical-alignment: center;
                 }
             }
@@ -2001,7 +2126,6 @@ export component MainWindow inherits Window {
                     { label: "Отчёты и журнал", id: "catreports", admin: true, sub: "Отчёты по периодам, журнал действий", value: "" },
                     { label: "Обслуживание", id: "catservice", admin: true, sub: "БД, копии, PIN, VNC, мастер, перезагрузка", value: "" },
                 ];
-                property <[string]> cat-icons: ["⌂", "⚖", "⎙", "⇄", "≡", "⚙"];
                 for c[i] in cats : Rectangle {
                     x: 8px + Math.mod(i, 2) * (cw + gap);
                     y: 8px + Math.floor(i / 2) * (ch + gap);
@@ -2014,18 +2138,7 @@ export component MainWindow inherits Window {
                     Text {
                         x: 24px;
                         y: 22px;
-                        width: 48px;
-                        height: 56px;
-                        text: cat-icons[i];
-                        font-family: "DejaVu Sans";
-                        font-size: 40px;
-                        color: Theme.ink-soft;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        x: 80px;
-                        y: 22px;
-                        width: parent.width - 104px;
+                        width: parent.width - 48px;
                         height: 56px;
                         text: c.label;
                         font-size: 30px;
@@ -2292,17 +2405,16 @@ export component MainWindow inherits Window {
             width: parent.width;
             height: parent.height - 84px;
             rows: [
-                { label: "Компоновка разделов", id: "layout", admin: true, sub: "Порядок, цвета, картинки отделов", value: "" },
+                { label: "Компоновка разделов", id: "layout", admin: true, sub: "Порядок и изображения отделов", value: "" },
                 { label: "ОТДЕЛЫ", id: "", admin: true, sub: "", value: "" },
                 { label: "Вид отделов", id: "deptview", admin: true, sub: "", value: root.goods-deptview },
                 { label: "Колонок на экране", id: "cols", admin: true, sub: "", value: root.goods-cols },
                 { label: "Порядок отделов", id: "sortalpha", admin: true, sub: "", value: root.goods-sort },
                 { label: "ТОВАРЫ", id: "", admin: true, sub: "", value: "" },
-                { label: "Столбцов с товарами", id: "itemscols", admin: true, sub: "", value: root.goods-itemscols },
+                { label: "Колонок товаров", id: "itemscols", admin: true, sub: "Чем меньше колонок, тем крупнее карточки", value: root.goods-itemscols },
                 { label: "Порядок товаров", id: "itemsort", admin: true, sub: "Популярные: чаще печатаемые за 30 дней сверху", value: root.goods-itemsort },
-                { label: "Название в карточке", id: "cardname", admin: true, sub: "", value: root.goods-cardname },
                 { label: "ПОВЕДЕНИЕ ЭКРАНА", id: "", admin: true, sub: "", value: "" },
-                { label: "Кнопка «← Назад» в каталоге", id: "backbtn", admin: true, sub: "", value: root.goods-backbtn },
+                { label: "Кнопка возврата в категории", id: "backbtn", admin: true, sub: "", value: root.goods-backbtn },
                 { label: "Возврат на главный экран", id: "idletimeout", admin: true, sub: "", value: root.goods-idle },
             ];
             role: root.role;
@@ -2507,13 +2619,13 @@ export component MainWindow inherits Window {
                     }
                     lbl-r-ta := TouchArea { clicked => { root.labels-tap(i); } }
                     Rectangle {
-                        x: parent.width - 64px;
+                        x: parent.width - 112px;
                         y: 9px;
-                        width: 44px;
+                        width: 96px;
                         height: 44px;
                         border-radius: Theme.r-inner;
                         background: lbl-del-ta.pressed ? Theme.danger-pressed : Theme.danger-soft;
-                        Text { text: "✕"; font-size: Theme.font-body; font-weight: 700; color: Theme.danger-ink; }
+                        Text { text: "Удалить"; font-size: 13px; font-weight: 700; color: Theme.danger-ink; }
                         lbl-del-ta := TouchArea { clicked => { root.labels-delete-tap(i); } }
                     }}
                 if root.labels-rows.length == 0 && root.labels-files.length == 0 : Text {
@@ -3006,7 +3118,7 @@ if root.screen == 30 : MenuPage { // Сеть и обмен
                     height: 48px;
                     border-radius: Theme.r-inner;
                     background: admin-up-ta.pressed ? Theme.pressed : Theme.chip;
-                    Text { text: "↑"; font-size: Theme.font-h3; font-weight: 700; color: Theme.ink-soft; }
+                    Text { text: "Выше"; font-size: 13px; font-weight: 700; color: Theme.ink-soft; }
                     admin-up-ta := TouchArea { clicked => { root.admin-up(r.name); } }
                 }
                 if !r.last : Rectangle {
@@ -3016,17 +3128,17 @@ if root.screen == 30 : MenuPage { // Сеть и обмен
                     height: 48px;
                     border-radius: Theme.r-inner;
                     background: admin-down-ta.pressed ? Theme.pressed : Theme.chip;
-                    Text { text: "↓"; font-size: Theme.font-h3; font-weight: 700; color: Theme.ink-soft; }
+                    Text { text: "Ниже"; font-size: 13px; font-weight: 700; color: Theme.ink-soft; }
                     admin-down-ta := TouchArea { clicked => { root.admin-down(r.name); } }
                 }
                 Rectangle {
-                    x: parent.width - 80px;
+                    x: parent.width - 96px;
                     y: 8px;
-                    width: 64px;
+                    width: 80px;
                     height: 48px;
                     border-radius: Theme.r-inner;
                     background: admin-del-ta.pressed ? Theme.danger-pressed : Theme.danger-soft;
-                    Text { text: "✕"; font-size: Theme.font-h3; font-weight: 700; color: Theme.danger-ink; }
+                    Text { text: "Удалить"; font-size: 12px; font-weight: 700; color: Theme.danger-ink; }
                     admin-del-ta := TouchArea { clicked => { root.admin-del(r.name); } }
                 }
                 }

@@ -949,7 +949,8 @@ fn scan_label_length(port: &mut Box<dyn serialport::SerialPort>) -> Result<u32, 
     const GAP_CAP: u32 = 60;
     let started = std::time::Instant::now();
     let expired = |what: &str| Fail::Printer(format!("шаг-скан: дедлайн фазы «{what}»"));
-    let res = (|| {
+
+    (|| {
         scan_phase(port, false, STEP_CAP, "зазор", started, TOTAL_DEADLINE)?;
         scan_phase(
             port,
@@ -984,8 +985,7 @@ fn scan_label_length(port: &mut Box<dyn serialport::SerialPort>) -> Result<u32, 
         }
         scan_phase(port, true, GAP_CAP, "выравнивание", started, TOTAL_DEADLINE)?;
         Ok(len)
-    })();
-    res
+    })()
 }
 fn recover_printer(port: &mut Box<dyn serialport::SerialPort>) -> Option<u8> {
     // ESC @ сбрасывает буфер печати: если принтер мог ещё молча печатать
@@ -1459,13 +1459,12 @@ fn finish(ack: mpsc::Sender<Result<(), String>>, res: Result<(), String>, what: 
     let _ = ack.send(out);
 }
 fn finish_print(ack: mpsc::Sender<Result<(), PrintFail>>, res: Result<(), PrintFail>, what: &str) {
-    let out = res.map_err(|f| {
+    let out = res.inspect_err(|f| {
         if f.unknown {
             log::warn!("принтер: {what}: результат не подтверждён: {}", f.text);
         } else {
             log::warn!("принтер: {what}: {}", f.text);
         }
-        f
     });
     let _ = ack.send(out);
 }
@@ -2529,7 +2528,7 @@ mod tests {
             r.origin_id = Some(origin);
             r
         };
-        assert!(row.clone().is_reprint() == false);
+        assert!(!row.clone().is_reprint());
         let r1 = as_reprint(10);
         let root = r1.origin_id.unwrap_or(20);
         assert_eq!(root, 10);

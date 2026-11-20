@@ -11,8 +11,8 @@ fn db(cfg: &config::Config) -> crate::backup::CliDb {
 pub fn list(cfg: &config::Config) {
     let db = db(cfg);
     let conn = &db.conn;
-    let depts = datastore::depts_list(&conn).unwrap_or_default();
-    let gd = datastore::group_depts(&conn).unwrap_or_default();
+    let depts = datastore::depts_list(conn).unwrap_or_default();
+    let gd = datastore::group_depts(conn).unwrap_or_default();
     println!("Отделы (порядок экранный; «альф» = по алфавиту):");
     for d in &depts {
         let mut groups: Vec<&str> = gd
@@ -43,11 +43,11 @@ pub fn add(
 ) {
     let db = db(cfg);
     let conn = &db.conn;
-    let existed = datastore::depts_list(&conn)
+    let existed = datastore::depts_list(conn)
         .unwrap_or_default()
         .iter()
         .any(|d| d.name == name);
-    datastore::dept_add(&conn, name, img, bg, fg).unwrap_or_else(|e| {
+    datastore::dept_add(conn, name, img, bg, fg).unwrap_or_else(|e| {
         eprintln!("добавление отдела: {e}");
         std::process::exit(1);
     });
@@ -75,7 +75,7 @@ pub fn style(
     let style_bg = opt(&bg);
     let style_fg = opt(&fg);
     datastore::dept_style(
-        &conn,
+        conn,
         name,
         style_img.as_ref().map(|o| o.as_deref()),
         style_bg.as_ref().map(|o| o.as_deref()),
@@ -90,7 +90,7 @@ pub fn style(
 pub fn remove(cfg: &config::Config, name: &str) {
     let db = db(cfg);
     let conn = &db.conn;
-    datastore::dept_remove(&conn, name).unwrap_or_else(|e| {
+    datastore::dept_remove(conn, name).unwrap_or_else(|e| {
         eprintln!("удаление отдела: {e}");
         std::process::exit(1);
     });
@@ -99,7 +99,7 @@ pub fn remove(cfg: &config::Config, name: &str) {
 pub fn move_dept(cfg: &config::Config, name: &str, ord: Option<i64>) {
     let db = db(cfg);
     let conn = &db.conn;
-    datastore::dept_move(&conn, name, ord).unwrap_or_else(|e| {
+    datastore::dept_move(conn, name, ord).unwrap_or_else(|e| {
         eprintln!("перестановка: {e}");
         std::process::exit(1);
     });
@@ -112,7 +112,7 @@ pub fn move_dept(cfg: &config::Config, name: &str, ord: Option<i64>) {
 pub fn group_assign(cfg: &config::Config, group: &str, dept: &str) {
     let db = db(cfg);
     let conn = &db.conn;
-    let depts: Vec<String> = datastore::depts_list(&conn)
+    let depts: Vec<String> = datastore::depts_list(conn)
         .unwrap_or_default()
         .into_iter()
         .map(|d| d.name)
@@ -121,7 +121,7 @@ pub fn group_assign(cfg: &config::Config, group: &str, dept: &str) {
         eprintln!("нет отдела «{dept}» (есть: {})", depts.join(", "));
         std::process::exit(1);
     }
-    datastore::group_assign(&conn, group, dept).unwrap_or_else(|e| {
+    datastore::group_assign(conn, group, dept).unwrap_or_else(|e| {
         eprintln!("привязка: {e}");
         std::process::exit(1);
     });

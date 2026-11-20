@@ -300,7 +300,7 @@ impl Config {
             self.printer.baud = 19_200;
         }
         // S7: каталог обмена конфигурацией не должен быть доступен по FTP.
-        if self.kiosk.cfg_export_dir == PathBuf::from("/var/ftp/scale/cfg") {
+        if self.kiosk.cfg_export_dir == *"/var/ftp/scale/cfg" {
             note("kiosk.cfg_export_dir=/var/ftp/scale/cfg → /var/lib/openscale/cfg-import".into());
             self.kiosk.cfg_export_dir = PathBuf::from("/var/lib/openscale/cfg-import");
         }
@@ -389,10 +389,12 @@ baud = 115200
     }
     #[test]
     fn time_section_parses() {
-        let mut c = Config::default();
-        c.time = crate::config::TimeProfile {
-            ntp: true,
-            server: String::new(),
+        let c = Config {
+            time: crate::config::TimeProfile {
+                ntp: true,
+                server: String::new(),
+            },
+            ..Default::default()
         };
         assert!(c.time.ntp);
         // Разбор секции из текста.
